@@ -1,6 +1,6 @@
 # Contributing to Web Image Crawler & Archive Manager
 
-First off, thank you for considering contributing to the Web Image Crawler & Archive Manager! It's people like you that make open source such a great community.
+First off, thank you for considering contributing to the Web Image Crawler & Archive Manager by Joe Montgomery ([Magic Plants](https://magicplants.net))! It's people like you that make open source such a great community.
 
 ---
 

@@ -7,7 +7,13 @@ Features:
 - Archive Manager tracking all ZIP archives
 - Direct in-memory image thumbnail preview without unpacking
 - Native Windows File Explorer integration and batch extraction
+
+Author: Joe Montgomery (Magic Plants)
+Website: https://magicplants.net
 """
+
+__author__ = "Joe Montgomery (Magic Plants)"
+__copyright__ = "Copyright 2026, Joe Montgomery (Magic Plants) - https://magicplants.net"
 
 from datetime import datetime
 import io
@@ -73,6 +79,15 @@ class ImageScraperApp(tk.Tk):
 
         self.setup_crawler_tab()
         self.setup_manager_tab()
+
+        # Subtle bottom footer
+        lbl_footer = ttk.Label(
+            self,
+            text="Web Image Crawler by Joe Montgomery (Magic Plants)  •  magicplants.net",
+            font=("Segoe UI", 8),
+            foreground="#888888",
+        )
+        lbl_footer.pack(side=tk.BOTTOM, pady=(0, 3))
 
     # =========================================================================
     # TAB 1: CRAWLER & DOWNLOADER

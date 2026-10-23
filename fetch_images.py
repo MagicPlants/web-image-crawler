@@ -3,7 +3,13 @@
 fetch_images.py - Fetch images from a web page and archive them into a zip file.
 Handles lazy-loading, srcset, <picture>, <noscript>, background images,
 and optional headless browser rendering for JavaScript-heavy pages.
+
+Author: Joe Montgomery (Magic Plants)
+Website: https://magicplants.net
 """
+
+__author__ = "Joe Montgomery (Magic Plants)"
+__copyright__ = "Copyright 2026, Joe Montgomery (Magic Plants) - https://magicplants.net"
 
 import argparse
 import base64

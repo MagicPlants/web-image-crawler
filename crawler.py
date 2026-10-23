@@ -2,7 +2,13 @@
 """
 crawler.py - Recursive web image crawler and archiver.
 Crawls web pages up to X levels deep and archives all discovered images into a ZIP.
+
+Author: Joe Montgomery (Magic Plants)
+Website: https://magicplants.net
 """
+
+__author__ = "Joe Montgomery (Magic Plants)"
+__copyright__ = "Copyright 2026, Joe Montgomery (Magic Plants) - https://magicplants.net"
 
 import argparse
 import base64

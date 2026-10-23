@@ -156,6 +156,15 @@ Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on c
 
 ---
 
+## 👤 Author
+
+**Joe Montgomery** ([Magic Plants](https://magicplants.net))
+- Website: [magicplants.net](https://magicplants.net)
+- GitHub: [@MagicPlants](https://github.com/MagicPlants)
+
+---
+
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See `LICENSE` for more information.  
+Copyright © 2026 Joe Montgomery ([Magic Plants](https://magicplants.net)).

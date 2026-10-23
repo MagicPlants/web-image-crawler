@@ -1,7 +1,13 @@
 """
 archive_store.py - Manages the registry of scraped image archives,
 providing metadata persistence, scanning, zip inspection, image preview loading, and extraction.
+
+Author: Joe Montgomery (Magic Plants)
+Website: https://magicplants.net
 """
+
+__author__ = "Joe Montgomery (Magic Plants)"
+__copyright__ = "Copyright 2026, Joe Montgomery (Magic Plants) - https://magicplants.net"
 
 from datetime import datetime
 import json
