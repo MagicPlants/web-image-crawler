@@ -7,6 +7,7 @@ Crawls web pages up to X levels deep and archives all discovered images into a Z
 import argparse
 import base64
 from collections import deque
+import io
 import os
 import re
 import sys
@@ -17,6 +18,7 @@ import zipfile
 
 import requests
 from bs4 import BeautifulSoup
+from PIL import Image
 
 try:
     from playwright.sync_api import sync_playwright
@@ -73,6 +75,53 @@ def slugify_url(url: str) -> str:
         return "index"
     slug = re.sub(r"[^a-zA-Z0-9_\-]", "_", path)
     return slug[:40].strip("_") or "page"
+
+
+def is_webp(data: bytes, filename: str, content_type: str = "") -> bool:
+    """Detects whether image data or filename indicates a WebP image."""
+    if filename.lower().endswith(".webp") or "image/webp" in content_type.lower():
+        return True
+    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+
+
+def convert_webp_to_png(webp_bytes: bytes, quality: str = "Lossless (100)") -> bytes:
+    """
+    Converts WebP image bytes to PNG format based on the selected quality level:
+    - Lossless (100): Full 24/32-bit truecolor, max compression (compress_level=9)
+    - High (90): Full truecolor, fast compression (compress_level=6)
+    - Good (75): 256-color palette quantization with Floyd-Steinberg dithering
+    - Low (50): 128-color palette quantization with Floyd-Steinberg dithering
+    """
+    img = Image.open(io.BytesIO(webp_bytes))
+    buf = io.BytesIO()
+
+    # Preserve alpha transparency if present
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        converted = img.convert("RGBA")
+    else:
+        converted = img.convert("RGB")
+
+    q_lower = quality.lower()
+    if "100" in q_lower or "lossless" in q_lower:
+        converted.save(buf, format="PNG", optimize=True, compress_level=9)
+    elif "90" in q_lower or "high" in q_lower:
+        converted.save(buf, format="PNG", optimize=True, compress_level=6)
+    elif "75" in q_lower or "good" in q_lower:
+        try:
+            q_img = converted.quantize(colors=256, dither=Image.Dither.FLOYDSTEINBERG)
+            q_img.save(buf, format="PNG", optimize=True)
+        except Exception:
+            converted.save(buf, format="PNG", optimize=True, compress_level=6)
+    elif "50" in q_lower or "low" in q_lower:
+        try:
+            q_img = converted.quantize(colors=128, dither=Image.Dither.FLOYDSTEINBERG)
+            q_img.save(buf, format="PNG", optimize=True)
+        except Exception:
+            converted.save(buf, format="PNG", optimize=True, compress_level=4)
+    else:
+        converted.save(buf, format="PNG", optimize=True)
+
+    return buf.getvalue()
 
 
 def is_placeholder(url_or_data: str) -> bool:
@@ -380,6 +429,9 @@ def crawl_and_archive(
     same_domain: bool = True,
     use_browser: bool = False,
     min_bytes: int = 200,
+    convert_webp: bool = True,
+    keep_webp: bool = False,
+    png_quality: str = "Lossless (100)",
     callback=None,
     cancel_event: threading.Event = None,
 ) -> dict:
@@ -519,6 +571,37 @@ def crawl_and_archive(
                         else:
                             raw_name = f"image_{total_saved + 1:03d}{default_ext}"
 
+                    # Check and process WebP to PNG conversion
+                    is_img_webp = is_webp(img_data, raw_name, content_type)
+                    orig_webp_saved = False
+
+                    if convert_webp and is_img_webp:
+                        try:
+                            orig_webp_data = img_data
+                            orig_name = raw_name
+                            png_bytes = convert_webp_to_png(orig_webp_data, png_quality)
+
+                            # Change filename extension to .png
+                            base_root, _ = os.path.splitext(raw_name)
+                            raw_name = f"{base_root}.png"
+                            img_data = png_bytes
+
+                            # If keep_webp is True, store the original in a webp_originals subfolder
+                            if keep_webp:
+                                if max_depth > 0:
+                                    webp_entry = f"p{pages_crawled:02d}_{page_slug}/webp_originals/{orig_name}"
+                                else:
+                                    webp_entry = f"webp_originals/{total_saved + 1:03d}_{orig_name}"
+
+                                if webp_entry in used_filenames:
+                                    w_root, w_ext = os.path.splitext(webp_entry)
+                                    webp_entry = f"{w_root}_{total_saved + 1}{w_ext}"
+                                used_filenames.add(webp_entry)
+                                archive.writestr(webp_entry, orig_webp_data)
+                                orig_webp_saved = True
+                        except Exception as conv_err:
+                            log(f"[!] Warning: WebP conversion failed ({conv_err}); saving original.")
+
                     # Organize into subfolders by page if multi-page crawl
                     if max_depth > 0:
                         folder_prefix = f"p{pages_crawled:02d}_{page_slug}"
@@ -534,7 +617,11 @@ def crawl_and_archive(
                     archive.writestr(entry_path, img_data)
                     total_saved += 1
                     kb = len(img_data) / 1024
-                    log(f"[+] Saved {entry_path} ({kb:.1f} KB)")
+
+                    log_extra = f" [Converted WebP -> PNG, Quality: {png_quality}]" if (convert_webp and is_img_webp) else ""
+                    if orig_webp_saved:
+                        log_extra += " (Original kept in webp_originals/)"
+                    log(f"[+] Saved {entry_path} ({kb:.1f} KB){log_extra}")
 
                     if callback:
                         callback({"type": "image_saved", "total_saved": total_saved, "entry_path": entry_path})
@@ -588,6 +675,14 @@ def main():
     parser.add_argument("-b", "--browser", action="store_true", help="Use headless browser for dynamic JS rendering")
     parser.add_argument("--any-domain", action="store_true", help="Allow crawling outside the starting domain")
     parser.add_argument("--min-size", type=int, default=200, help="Minimum file size in bytes to keep")
+    parser.add_argument("--no-convert-webp", action="store_true", help="Do not convert WebP images to PNG")
+    parser.add_argument("--keep-webp", action="store_true", help="Keep original WebP files in a webp_originals subfolder (default: trash them)")
+    parser.add_argument(
+        "--png-quality",
+        default="Lossless (100)",
+        choices=["Lossless (100)", "High (90)", "Good (75)", "Low (50)"],
+        help="PNG conversion quality (default: Lossless (100))",
+    )
 
     args = parser.parse_args()
 
@@ -614,6 +709,9 @@ def main():
         same_domain=not args.any_domain,
         use_browser=args.browser,
         min_bytes=args.min_size,
+        convert_webp=not args.no_convert_webp,
+        keep_webp=args.keep_webp,
+        png_quality=args.png_quality,
     )
 
 

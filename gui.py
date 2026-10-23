@@ -144,6 +144,37 @@ class ImageScraperApp(tk.Tk):
         self.spin_min_size.set(200)
         self.spin_min_size.pack(side=tk.LEFT)
 
+        # WebP Conversion Settings Frame
+        frame_webp = ttk.LabelFrame(frame_opts, text="WebP to PNG Conversion Settings", padding=6)
+        frame_webp.grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=(8, 2))
+
+        self.var_convert_webp = tk.BooleanVar(value=True)
+        self.chk_convert_webp = ttk.Checkbutton(
+            frame_webp,
+            text="Convert WebP images to PNG",
+            variable=self.var_convert_webp,
+            command=self.toggle_webp_options,
+        )
+        self.chk_convert_webp.pack(side=tk.LEFT, padx=(4, 15))
+
+        self.var_keep_webp = tk.BooleanVar(value=False)
+        self.chk_keep_webp = ttk.Checkbutton(
+            frame_webp,
+            text="Keep WebP originals in subfolder (otherwise trashed)",
+            variable=self.var_keep_webp,
+        )
+        self.chk_keep_webp.pack(side=tk.LEFT, padx=(0, 15))
+
+        ttk.Label(frame_webp, text="PNG Quality:").pack(side=tk.LEFT, padx=(0, 4))
+        self.combo_png_quality = ttk.Combobox(
+            frame_webp,
+            values=["Lossless (100)", "High (90)", "Good (75)", "Low (50)"],
+            state="readonly",
+            width=14,
+        )
+        self.combo_png_quality.set("Lossless (100)")
+        self.combo_png_quality.pack(side=tk.LEFT)
+
         # Action Buttons & Status Banner
         frame_action = ttk.Frame(self.tab_crawler)
         frame_action.pack(fill=tk.X, pady=(0, 8))
@@ -181,6 +212,11 @@ class ImageScraperApp(tk.Tk):
         self.txt_log.tag_config("saved", foreground="#6a9955")
         self.txt_log.tag_config("warning", foreground="#ce9178")
         self.txt_log.tag_config("error", foreground="#f44747")
+
+    def toggle_webp_options(self):
+        state = tk.NORMAL if self.var_convert_webp.get() else tk.DISABLED
+        self.chk_keep_webp.config(state=state)
+        self.combo_png_quality.config(state="readonly" if self.var_convert_webp.get() else tk.DISABLED)
 
     def on_url_changed(self, event=None):
         url = self.entry_url.get().strip()
@@ -245,6 +281,9 @@ class ImageScraperApp(tk.Tk):
 
         same_domain = self.var_same_domain.get()
         use_browser = self.var_browser.get()
+        convert_webp = self.var_convert_webp.get()
+        keep_webp = self.var_keep_webp.get()
+        png_quality = self.combo_png_quality.get()
 
         self.txt_log.delete("1.0", tk.END)
         self.btn_start.config(state=tk.DISABLED)
@@ -264,6 +303,9 @@ class ImageScraperApp(tk.Tk):
                 same_domain=same_domain,
                 use_browser=use_browser,
                 min_bytes=min_size,
+                convert_webp=convert_webp,
+                keep_webp=keep_webp,
+                png_quality=png_quality,
                 callback=self.handle_crawler_callback,
                 cancel_event=self.cancel_event,
             )

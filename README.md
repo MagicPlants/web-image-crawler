@@ -18,6 +18,11 @@ A desktop application and CLI tool that recursively crawls websites up to **X le
   - **`<picture>` & `<noscript>` Support**: Captures modern responsive `<source>` formats (WebP, AVIF) and non-JavaScript fallbacks.
   - **Anti-Hotlink Referer Spoofing**: Supplies authentic `Referer` and browser headers so CDNs do not block downloads.
 
+- **Automatic WebP to PNG Conversion**:
+  - Automatically converts all downloaded WebP images into standard, universal PNG files before archiving.
+  - **Keep or Trash Original WebP**: Choose to retain the original `.webp` files in a dedicated `webp_originals/` subfolder or trash/discard them to keep your archives lean.
+  - **Custom PNG Quality**: Select between **Lossless (100)**, **High (90)**, **Good (75)**, or **Low (50)** to optimize file size vs. visual fidelity.
+
 - **Headless Browser Rendering (Playwright)**:
   - Toggle headless Chromium execution to render dynamic JavaScript single-page apps (SPAs) and trigger scroll-based `IntersectionObserver` loaders.
 
@@ -130,6 +135,9 @@ python crawler.py https://example.com -d 1 -b -o archives/example_js.zip
 | `-b, --browser` | Use headless browser for JS rendering | Disabled |
 | `--any-domain` | Allow crawling external domains | Disabled (stays on domain) |
 | `--min-size` | Minimum image size in bytes | `200` |
+| `--no-convert-webp` | Disable automatic WebP to PNG conversion | Enabled by default |
+| `--keep-webp` | Keep original WebP files in `webp_originals/` | Disabled (trashes originals) |
+| `--png-quality` | PNG quality: `Lossless (100)`, `High (90)`, `Good (75)`, `Low (50)` | `Lossless (100)` |
 
 ---
 

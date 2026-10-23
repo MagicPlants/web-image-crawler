@@ -7,6 +7,7 @@ and optional headless browser rendering for JavaScript-heavy pages.
 
 import argparse
 import base64
+import io
 import os
 import re
 import sys
@@ -15,6 +16,7 @@ import zipfile
 
 import requests
 from bs4 import BeautifulSoup
+from PIL import Image
 
 try:
     from playwright.sync_api import sync_playwright
@@ -67,6 +69,52 @@ LAZY_SRCSET_ATTRS = [
 def sanitize_filename(name: str) -> str:
     """Removes invalid filename characters for cross-platform compatibility."""
     return re.sub(r'[\\/*?:"<>|]', "_", name).strip()
+
+
+def is_webp(data: bytes, filename: str, content_type: str = "") -> bool:
+    """Detects whether image data or filename indicates a WebP image."""
+    if filename.lower().endswith(".webp") or "image/webp" in content_type.lower():
+        return True
+    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+
+
+def convert_webp_to_png(webp_bytes: bytes, quality: str = "Lossless (100)") -> bytes:
+    """
+    Converts WebP image bytes to PNG format based on the selected quality level:
+    - Lossless (100): Full 24/32-bit truecolor, max compression (compress_level=9)
+    - High (90): Full truecolor, fast compression (compress_level=6)
+    - Good (75): 256-color palette quantization with Floyd-Steinberg dithering
+    - Low (50): 128-color palette quantization with Floyd-Steinberg dithering
+    """
+    img = Image.open(io.BytesIO(webp_bytes))
+    buf = io.BytesIO()
+
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        converted = img.convert("RGBA")
+    else:
+        converted = img.convert("RGB")
+
+    q_lower = quality.lower()
+    if "100" in q_lower or "lossless" in q_lower:
+        converted.save(buf, format="PNG", optimize=True, compress_level=9)
+    elif "90" in q_lower or "high" in q_lower:
+        converted.save(buf, format="PNG", optimize=True, compress_level=6)
+    elif "75" in q_lower or "good" in q_lower:
+        try:
+            q_img = converted.quantize(colors=256, dither=Image.Dither.FLOYDSTEINBERG)
+            q_img.save(buf, format="PNG", optimize=True)
+        except Exception:
+            converted.save(buf, format="PNG", optimize=True, compress_level=6)
+    elif "50" in q_lower or "low" in q_lower:
+        try:
+            q_img = converted.quantize(colors=128, dither=Image.Dither.FLOYDSTEINBERG)
+            q_img.save(buf, format="PNG", optimize=True)
+        except Exception:
+            converted.save(buf, format="PNG", optimize=True, compress_level=4)
+    else:
+        converted.save(buf, format="PNG", optimize=True)
+
+    return buf.getvalue()
 
 
 def is_placeholder(url_or_data: str) -> bool:
@@ -382,6 +430,9 @@ def download_and_archive(
     output_zip: str = "images.zip",
     use_browser: bool = False,
     min_bytes: int = 200,
+    convert_webp: bool = True,
+    keep_webp: bool = False,
+    png_quality: str = "Lossless (100)",
 ) -> int:
     """
     Fetches real images from page_url and archives them into output_zip.
@@ -465,6 +516,33 @@ def download_and_archive(
 
                     filename = get_filename_from_url(img_url, default_ext, idx)
 
+                # Check and process WebP to PNG conversion
+                is_img_webp = is_webp(img_data, filename, content_type)
+                orig_webp_saved = False
+
+                if convert_webp and is_img_webp:
+                    try:
+                        orig_webp_data = img_data
+                        orig_name = filename
+                        png_bytes = convert_webp_to_png(orig_webp_data, png_quality)
+
+                        # Change extension to .png
+                        base_root, _ = os.path.splitext(filename)
+                        filename = f"{base_root}.png"
+                        img_data = png_bytes
+
+                        # If keep_webp is True, keep original in webp_originals/
+                        if keep_webp:
+                            webp_entry = f"webp_originals/{orig_name}"
+                            if webp_entry in used_filenames:
+                                w_root, w_ext = os.path.splitext(webp_entry)
+                                webp_entry = f"{w_root}_{idx}{w_ext}"
+                            used_filenames.add(webp_entry)
+                            archive.writestr(webp_entry, orig_webp_data)
+                            orig_webp_saved = True
+                    except Exception as conv_err:
+                        print(f"[!] Warning: WebP conversion failed ({conv_err}); saving original.")
+
                 # Avoid duplicate names in zip
                 if filename in used_filenames:
                     root, ext = os.path.splitext(filename)
@@ -475,7 +553,11 @@ def download_and_archive(
                 archive.writestr(filename, img_data)
                 saved_count += 1
                 size_kb = len(img_data) / 1024
-                print(f"[+] [{idx}/{len(img_urls)}] Saved {filename} ({size_kb:.1f} KB)")
+
+                log_extra = f" [Converted WebP -> PNG, Quality: {png_quality}]" if (convert_webp and is_img_webp) else ""
+                if orig_webp_saved:
+                    log_extra += " (Original kept in webp_originals/)"
+                print(f"[+] [{idx}/{len(img_urls)}] Saved {filename} ({size_kb:.1f} KB){log_extra}")
 
             except Exception as e:
                 print(f"[-] [{idx}/{len(img_urls)}] Error downloading {img_url}: {e}")
@@ -505,6 +587,14 @@ def main():
     parser.add_argument(
         "--min-size", type=int, default=200, help="Minimum file size in bytes to keep (filters out 1x1 spacer pixels)."
     )
+    parser.add_argument("--no-convert-webp", action="store_true", help="Do not convert WebP images to PNG")
+    parser.add_argument("--keep-webp", action="store_true", help="Keep original WebP files in a webp_originals subfolder (default: trash them)")
+    parser.add_argument(
+        "--png-quality",
+        default="Lossless (100)",
+        choices=["Lossless (100)", "High (90)", "Good (75)", "Low (50)"],
+        help="PNG conversion quality (default: Lossless (100))",
+    )
 
     args = parser.parse_args()
 
@@ -523,7 +613,15 @@ def main():
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
-    download_and_archive(url, args.output, use_browser=args.browser, min_bytes=args.min_size)
+    download_and_archive(
+        url,
+        args.output,
+        use_browser=args.browser,
+        min_bytes=args.min_size,
+        convert_webp=not args.no_convert_webp,
+        keep_webp=args.keep_webp,
+        png_quality=args.png_quality,
+    )
 
 
 if __name__ == "__main__":
