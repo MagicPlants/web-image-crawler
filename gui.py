@@ -40,7 +40,7 @@ def format_bytes(num_bytes: int) -> str:
 class ImageScraperApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Web Image Crawler & Archive Manager")
+        self.title("Web Image Crawler & Archive Manager by magicplants.net")
         self.geometry("1060x740")
         self.minsize(900, 600)
 

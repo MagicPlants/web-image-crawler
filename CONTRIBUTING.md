@@ -26,7 +26,7 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/web-image-crawler.git
+   git clone https://github.com/MagicPlants/web-image-crawler.git
    cd web-image-crawler
    ```
 3. **Create a topic branch** from `main`:

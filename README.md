@@ -1,4 +1,4 @@
-# 🕷️ Web Image Crawler & Archive Manager
+# 🕷️ Web Image Crawler & Archive Manager by magicplants.net
 
 A desktop application and CLI tool that recursively crawls websites up to **X levels deep**, extracts high-resolution images while filtering out blank lazy-loading placeholders, and archives them directly into organized ZIP packages with a built-in archive manager and image previewer.
 
@@ -55,7 +55,7 @@ A desktop application and CLI tool that recursively crawls websites up to **X le
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/web-image-crawler.git
+   git clone https://github.com/MagicPlants/web-image-crawler.git
    cd web-image-crawler
    ```
 
