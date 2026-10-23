@@ -29,6 +29,19 @@ A desktop application and CLI tool that recursively crawls websites up to **X le
 
 ---
 
+## 📸 Screenshots
+
+### 1. Archive Manager & In-Memory Image Viewer
+![Archive Manager & Viewer](screenshots/screenshot-1.png)
+
+### 2. Multi-Level Web Crawler & Downloader GUI
+![Web Crawler & Downloader GUI](screenshots/screenshot-2.png)
+
+### 3. Archived Images & File Manager Output
+![Archived Output](screenshots/screenshot-3.png)
+
+---
+
 ## 📁 Project Structure
 
 ```text
@@ -36,6 +49,7 @@ A desktop application and CLI tool that recursively crawls websites up to **X le
 ├── crawler.py         # Recursive multi-level crawling engine & CLI
 ├── fetch_images.py    # Standalone single-page scraper CLI
 ├── archive_store.py   # Registry manager, ZIP inspection, & preview loader
+├── screenshots/       # Application screenshots & UI previews
 ├── requirements.txt   # Python package dependencies
 ├── .gitignore         # Git ignore rules for virtualenvs and archives
 ├── CONTRIBUTING.md    # Contribution guidelines
