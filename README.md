@@ -54,6 +54,7 @@ A desktop application and CLI tool that recursively crawls websites up to **X le
 ├── crawler.py         # Recursive multi-level crawling engine & CLI
 ├── fetch_images.py    # Standalone single-page scraper CLI
 ├── archive_store.py   # Registry manager, ZIP inspection, & preview loader
+├── tests/             # Regression tests (run with unittest)
 ├── screenshots/       # Application screenshots & UI previews
 ├── requirements.txt   # Python package dependencies
 ├── .gitignore         # Git ignore rules for virtualenvs and archives
@@ -138,6 +139,14 @@ python crawler.py https://example.com -d 1 -b -o archives/example_js.zip
 | `--no-convert-webp` | Disable automatic WebP to PNG conversion | Enabled by default |
 | `--keep-webp` | Keep original WebP files in `webp_originals/` | Disabled (trashes originals) |
 | `--png-quality` | PNG quality: `Lossless (100)`, `High (90)`, `Good (75)`, `Low (50)` | `Lossless (100)` |
+
+### 3. Run the Tests
+
+```
+python -m unittest discover -s tests -v
+```
+
+No browser is needed for the tests. They cover srcset selection, placeholder filtering, data URI archiving, and safe ZIP extraction.
 
 ---
 

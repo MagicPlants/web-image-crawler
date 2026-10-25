@@ -183,8 +183,20 @@ def read_image_from_zip(filepath: str, inner_filename: str) -> bytes | None:
 
 
 def extract_archive(filepath: str, destination_dir: str) -> str:
-    """Extracts all contents of a zip archive into destination_dir."""
-    os.makedirs(destination_dir, exist_ok=True)
+    """Extracts all contents of a zip archive into destination_dir.
+
+    Rejects entries that would escape the destination (absolute paths or
+    parent directory traversal), so a hostile archive cannot write outside
+    the chosen folder.
+    """
+    dest = os.path.abspath(destination_dir)
+    os.makedirs(dest, exist_ok=True)
     with zipfile.ZipFile(filepath, "r") as z:
-        z.extractall(destination_dir)
-    return destination_dir
+        for member in z.infolist():
+            if member.is_dir():
+                continue
+            target = os.path.abspath(os.path.join(dest, member.filename))
+            if os.path.commonpath([dest, target]) != dest:
+                raise ValueError(f"Unsafe archive entry, skipped extraction: {member.filename}")
+            z.extract(member, dest)
+    return dest

@@ -377,12 +377,26 @@ def extract_image_sources_browser(page_url: str) -> list[str]:
                     if (src) results.add(src);
                 });
 
-                // 2. Picture and source elements
+                // 2. Picture and source elements, highest resolution first
+                const bestFromSrcset = (srcset) => {
+                    let best = null;
+                    let bestScore = -1;
+                    srcset.split(',').forEach(part => {
+                        const pieces = part.trim().split(' ').filter(Boolean);
+                        if (!pieces[0]) return;
+                        let score = 1;
+                        const desc = (pieces[1] || '').toLowerCase();
+                        if (desc.endsWith('w')) score = parseFloat(desc) || 1;
+                        else if (desc.endsWith('x')) score = (parseFloat(desc) || 1) * 1000;
+                        if (score > bestScore) { bestScore = score; best = pieces[0]; }
+                    });
+                    return best;
+                };
                 document.querySelectorAll('source').forEach(source => {
                     const srcset = source.srcset || source.getAttribute('data-srcset');
                     if (srcset) {
-                        const first = srcset.split(',')[0].trim().split(' ')[0];
-                        if (first) results.add(first);
+                        const best = bestFromSrcset(srcset);
+                        if (best) results.add(best);
                     }
                 });
 
@@ -483,6 +497,7 @@ def download_and_archive(
     with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as archive:
         for idx, img_url in enumerate(img_urls, start=1):
             try:
+                content_type = ""
                 # Handle inline base64 / URL-encoded data URI
                 if img_url.startswith("data:image/"):
                     if ";base64," in img_url:
@@ -494,6 +509,7 @@ def download_and_archive(
 
                     mime_match = re.search(r"data:(image/[^;]+)", header)
                     mime = mime_match.group(1).lower() if mime_match else "image/jpeg"
+                    content_type = mime
                     ext = MIME_TO_EXT.get(mime, ".jpg")
 
                     if len(img_data) < min_bytes or is_placeholder(img_url):

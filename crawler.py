@@ -382,11 +382,26 @@ def extract_images_and_links_browser(page_url: str, base_domain: str, same_domai
                     if (src) images.add(src);
                 });
 
+                const bestFromSrcset = (srcset) => {
+                    let best = null;
+                    let bestScore = -1;
+                    srcset.split(',').forEach(part => {
+                        const pieces = part.trim().split(' ').filter(Boolean);
+                        if (!pieces[0]) return;
+                        let score = 1;
+                        const desc = (pieces[1] || '').toLowerCase();
+                        if (desc.endsWith('w')) score = parseFloat(desc) || 1;
+                        else if (desc.endsWith('x')) score = (parseFloat(desc) || 1) * 1000;
+                        if (score > bestScore) { bestScore = score; best = pieces[0]; }
+                    });
+                    return best;
+                };
+
                 document.querySelectorAll('source').forEach(source => {
                     const srcset = source.srcset || source.getAttribute('data-srcset');
                     if (srcset) {
-                        const first = srcset.split(',')[0].trim().split(' ')[0];
-                        if (first) images.add(first);
+                        const best = bestFromSrcset(srcset);
+                        if (best) images.add(best);
                     }
                 });
 
@@ -463,8 +478,10 @@ def crawl_and_archive(
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     })
 
-    # Queue of (url, current_depth)
+    # Queue of (url, current_depth), plus a set so duplicate checks are O(1)
+    # instead of scanning the whole queue for every discovered link.
     queue = deque([(start_url, 0)])
+    queued_urls = {start_url}
     visited_pages = set()
     visited_images = set()
 
@@ -487,6 +504,7 @@ def crawl_and_archive(
                 break
 
             current_url, depth = queue.popleft()
+            queued_urls.discard(current_url)
             if current_url in visited_pages:
                 continue
 
@@ -541,6 +559,7 @@ def crawl_and_archive(
                 visited_images.add(img_url)
 
                 try:
+                    content_type = ""
                     # Data URI handling
                     if img_url.startswith("data:image/"):
                         if ";base64," in img_url:
@@ -552,6 +571,7 @@ def crawl_and_archive(
 
                         mime_match = re.search(r"data:(image/[^;]+)", header)
                         mime = mime_match.group(1).lower() if mime_match else "image/jpeg"
+                        content_type = mime
                         ext = MIME_TO_EXT.get(mime, ".jpg")
 
                         if len(img_data) < min_bytes or is_placeholder(img_url):
@@ -639,8 +659,9 @@ def crawl_and_archive(
             if depth < max_depth:
                 new_links_count = 0
                 for link in page_links:
-                    if link not in visited_pages and link not in [q[0] for q in queue]:
+                    if link not in visited_pages and link not in queued_urls:
                         queue.append((link, depth + 1))
+                        queued_urls.add(link)
                         new_links_count += 1
                 if new_links_count > 0:
                     log(f"[*] Queued {new_links_count} child link(s) for depth {depth + 1}")

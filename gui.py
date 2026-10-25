@@ -18,6 +18,7 @@ __copyright__ = "Copyright 2026, Joe Montgomery (Magic Plants) - https://magicpl
 from datetime import datetime
 import io
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -41,6 +42,30 @@ def format_bytes(num_bytes: int) -> str:
         return f"{num_bytes / 1024:.1f} KB"
     else:
         return f"{num_bytes / (1024 * 1024):.2f} MB"
+
+
+def open_path(path: str) -> None:
+    """Opens a file or folder with the system default app on any platform."""
+    if sys.platform == "win32":
+        os.startfile(path)
+    elif sys.platform == "darwin":
+        subprocess.run(["open", path], check=True)
+    else:
+        subprocess.run(["xdg-open", path], check=True)
+
+
+def reveal_in_file_manager(path: str) -> None:
+    """Highlights a file in the system file manager on any platform."""
+    if sys.platform == "win32":
+        subprocess.run(["explorer", f"/select,{os.path.normpath(path)}"], check=True)
+    elif sys.platform == "darwin":
+        subprocess.run(["open", "-R", path], check=True)
+    else:
+        folder = os.path.dirname(os.path.abspath(path))
+        try:
+            subprocess.run(["xdg-open", folder], check=True)
+        except Exception:
+            open_path(folder)
 
 
 class ImageScraperApp(tk.Tk):
@@ -583,11 +608,10 @@ class ImageScraperApp(tk.Tk):
             messagebox.showerror("Not Found", f"Archive file does not exist on disk:\n{path}")
             return
 
-        # Highlight file in Windows Explorer
         try:
-            subprocess.run(["explorer", f"/select,{os.path.normpath(path)}"])
+            reveal_in_file_manager(path)
         except Exception as e:
-            os.startfile(os.path.dirname(path))
+            messagebox.showerror("Error", f"Could not open file manager: {e}")
 
     def extract_selected_archive(self):
         rec = self.get_selected_archive_record()
@@ -607,7 +631,7 @@ class ImageScraperApp(tk.Tk):
         try:
             archive_store.extract_archive(zip_path, target_dir)
             if messagebox.askyesno("Success", f"Archive extracted successfully to:\n{target_dir}\n\nOpen folder now?"):
-                os.startfile(target_dir)
+                open_path(target_dir)
         except Exception as e:
             messagebox.showerror("Extraction Error", f"Failed to extract archive: {e}")
 
@@ -646,7 +670,7 @@ class ImageScraperApp(tk.Tk):
             f.write(img_bytes)
 
         try:
-            os.startfile(temp_file)
+            open_path(temp_file)
         except Exception as e:
             messagebox.showerror("Error", f"Could not launch viewer: {e}")
 
